@@ -12,8 +12,8 @@ from get_country import getCountry
 
 # MongoDB connection
 load_dotenv()
-MONGO_CONNECTION_STRING = os.getenv('MONGO_URI')
-client = pymongo.MongoClient(MONGO_CONNECTION_STRING)
+MONGO_URI = os.getenv('MONGO_URI')
+client = pymongo.MongoClient(MONGO_URI)
 db = client['Analytics']
 collection = db['dau']
 db_TME = client['TranscribeMe']
