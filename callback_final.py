@@ -8,7 +8,7 @@ from get_data import (get_daily_data, get_monthly_data, add_total_per_date,
                       calculate_total_metrics, get_dau_mau_ratio_data)
 from charts import (active_users_chart, total_interactions_chart, 
                     users_by_country, new_users_by_country, 
-                    new_users_percentage_chart, interactions_percentage_chart,
+                    new_users_percentage_chart, interactions_percentage_chart, subs_by_country_chart,
                     dau_mau_ratio_chart, active_subscribed_users_chart, subscribed_users_percent_chart)
 
 # MongoDB connection
@@ -127,6 +127,7 @@ def register_callbacks(app):
                 ),
                 html.Div([html.H3(f"{view} Active Users", style={'textAlign': 'center'}), dcc.Graph(id='dau_by_country')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
                 html.Div([html.H3(f"{view} New Users", style={'textAlign': 'center'}), dcc.Graph(id='new_users_by_country')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
+                html.Div([html.H3(f"{view} Active Subscribed Users", style={'textAlign': 'center'}), dcc.Graph(id='subs_by_country')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
                 html.Div([html.H3("DAU/MAU Ratio por Mes", style={'textAlign': 'center'}), dcc.Graph(id='dau_mau_ratio_chart')], style={'margin': '20px 10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'})
             ])
         return html.Div([html.P("Selecciona una pestaña para ver el contenido.")])
@@ -178,6 +179,7 @@ def register_callbacks(app):
         [
             Output('dau_by_country', 'figure'),
             Output('new_users_by_country', 'figure'),
+            Output('subs_by_country', 'figure')
         ],
         [
             Input('start_date_picker', 'date'), 
@@ -201,7 +203,8 @@ def register_callbacks(app):
         # Generar gráficos por país
         users_by_country_fig = users_by_country(data_with_total, countries, view)
         new_users_by_country_fig = new_users_by_country(data_with_total, countries, view)
-        return users_by_country_fig, new_users_by_country_fig
+        subs_by_country_fig = subs_by_country_chart(data_with_total, countries, view)
+        return users_by_country_fig, new_users_by_country_fig, subs_by_country_fig
     
     # Nuevo callback para el gráfico DAU/MAU ratio
     @app.callback(
