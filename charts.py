@@ -67,20 +67,94 @@ def interactions_percentage_chart(df, view):
                         yaxis_tickformat=',', title_x=0.5)
     return fig
 
+def active_subscribed_users_chart(df, view):
+    fig = go.Figure()
+    # Active Users
+    fig.add_scatter(x=df["date"], y=df["count"], mode='lines+markers', name='Total Users', fill='tozeroy',
+                    line=dict(color="#8677D8"),marker=dict(size=4, symbol='circle'))
+    # New Users
+    fig.add_scatter(x=df["date"], y=df["subscribed"],mode='lines+markers', name='Subscribed Users', fill='tozeroy',
+                    line=dict(color="#6BC26B"), marker=dict(size=4, symbol='circle'))
 
-def users_by_country (data, countries, view):
-    filtered = data[data["country"].isin(countries)]
-    fig = px.area(filtered, x="date", y="count", color="country", title=f"{view} Active Users")
-    fig.update_traces(mode='lines+markers', marker=dict(size=4, symbol='circle'))
-    fig.update_layout(yaxis_title="Users", xaxis_title="date", yaxis_tickformat=',', title_x=0.5)
+    # Estética general
+    fig.update_layout(title=f"{view} Total and Subscribed Active Users", yaxis_title="Users", xaxis_title="date",
+                        yaxis_tickformat=',', title_x=0.5)
     return fig
 
-def new_users_by_country (data, countries, view):
-    filtered = data[data["country"].isin(countries)]
-    fig = px.area(filtered, x="date", y="new_users", color="country", title=f"{view} Active Users")
-    fig.update_traces(mode='lines+markers', marker=dict(size=4, symbol='circle'))
-    fig.update_layout(yaxis_title="Users", xaxis_title="date", yaxis_tickformat=',', title_x=0.5)
+def subscribed_users_percent_chart(df, view):
+    # Calculate percentage of new users
+    df = df.copy()
+    df['subscribed_percentage'] = round((df['subscribed'] / df['count'] * 100).fillna(0), 2)
+    fig = go.Figure()
+    fig.add_scatter(x=df["date"], y=df["subscribed_percentage"],mode='lines+markers', name='Percentage', fill='tozeroy',
+                    line=dict(color="#6BC26B"), marker=dict(size=4, symbol='circle'))
+    # Estética general
+    fig.update_layout(title=f'Percentage of Subscribed Users relative to Total {view} Active Users', yaxis_title="Percentage", xaxis_title="date",
+                        yaxis_tickformat=',', title_x=0.5)
     return fig
+
+def users_by_country(data, countries, view):
+    # Filtrar datos por países seleccionados
+    filtered = data[data["country"].isin(countries)]
+    
+    # Manejar caso de datos vacíos
+    if filtered.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data available for the selected countries",
+            xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False
+        )
+        return fig
+    
+    # Crear gráfico de área superpuesta
+    fig = go.Figure()
+    for country in countries:
+        country_data = filtered[filtered['country'] == country]
+        fig.add_trace(
+            go.Scatter(x=country_data['date'],y=country_data['count'],name=country,mode='lines+markers',
+                        line_shape='spline',  # Líneas suaves
+                        marker=dict(size=4, symbol='circle'),
+                        fill='tozeroy',  # Área desde y=0
+                        opacity=0.5  # Transparencia para ver áreas superpuestas
+            )
+        )
+    
+    # Configurar layout
+    fig.update_layout(yaxis_title="Users", xaxis_title="Date", yaxis_tickformat=',', title=f"{view} Active Users",
+                        title_x=0.5, hovermode='x unified', showlegend=True)    
+    return fig
+
+def new_users_by_country(data, countries, view):
+    # Filtrar datos por países seleccionados
+    filtered = data[data["country"].isin(countries)]
+    
+    # Manejar caso de datos vacíos
+    if filtered.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data available for the selected countries",
+            xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False
+        )
+        return fig
+    
+    # Crear gráfico de área superpuesta
+    fig = go.Figure()
+    for country in countries:
+        country_data = filtered[filtered['country'] == country]
+        fig.add_trace(
+            go.Scatter(x=country_data['date'],y=country_data['new_users'],name=country,mode='lines+markers',
+                        line_shape='spline',  # Líneas suaves
+                        marker=dict(size=4, symbol='circle'),
+                        fill='tozeroy',  # Área desde y=0
+                        opacity=0.5  # Transparencia para ver áreas superpuestas
+            )
+        )
+    
+    # Configurar layout
+    fig.update_layout(yaxis_title="Users", xaxis_title="Date", yaxis_tickformat=',', title=f"{view} New Users",
+                        title_x=0.5, hovermode='x unified', showlegend=True)    
+    return fig
+
 
 def dau_mau_ratio_chart(data, countries, title="DAU/MAU Ratio"):
     """
@@ -115,14 +189,5 @@ def dau_mau_ratio_chart(data, countries, title="DAU/MAU Ratio"):
                 labels={'year_month': 'Mes', 'dau_mau_ratio': 'Ratio DAU/MAU', 'country': 'País'}, markers=True)
     
     # Configurar layout
-    fig.update_layout(xaxis_title="Mes", yaxis_title="Ratio DAU/MAU", hovermode='x unified', 
-                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-    
-    # Formato del hover
-    fig.update_traces(
-        hovertemplate='<b>%{fullData.name}</b><br>' +
-                      'Mes: %{x}<br>' +
-                      'Ratio DAU/MAU: %{y:.3f}<br>' +
-                      '<extra></extra>'
-    )    
+    fig.update_layout(xaxis_title="Mes", yaxis_title="Ratio DAU/MAU", yaxis_tickformat=',', title_x=0.5) 
     return fig
