@@ -38,6 +38,7 @@ def get_daily_data(collection, start_date, end_date):
             'country': 1,
             'dau': 1,
             'new_users': 1,
+            'subscribed':1,
             'interactions': 1,
             'audio': 1,
             'text': 1
@@ -49,20 +50,27 @@ def get_daily_data(collection, start_date, end_date):
         # Verificar si se encontraron documentos
         if not documentos:
             print(f"No se encontraron documentos en la colección '{collection.name}' entre {start_date} y {end_date}.")
-            return pd.DataFrame(columns=['date', 'country', 'dau', 'new_users', 'interactions', 'audio', 'text'])
+            return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed','interactions', 'audio', 'text'])
 
         # Convertir a DataFrame
         df = pd.DataFrame(documentos)
 
         # Cambiar nombre
         df = df.rename(columns={'dau': 'count'})
+
+        # Convertir 'date' a datetime
+        df['date'] = pd.to_datetime(df['date'])
+
+        # Ordenar por 'date'
+        df = df.sort_values(by='date', ascending=True)
+        
         # Asegurar que la columna 'date' esté en formato string 'yyyy-mm-dd'
-        #df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+        df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
         return df
     
     except Exception as e:
         print(f"Error al extraer datos: {e}")
-        return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'interactions', 'audio', 'text'])
+        return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed','interactions', 'audio', 'text'])
 
 def get_monthly_data(collection, start_date, end_date):
     """
@@ -88,7 +96,7 @@ def get_monthly_data(collection, start_date, end_date):
 
         # Definir el filtro de fechas
         query = {
-            'date': {
+            'month': {
                 '$gte': start_date,
                 '$lte': end_date
             }
@@ -97,10 +105,11 @@ def get_monthly_data(collection, start_date, end_date):
         # Definir los campos a extraer
         projection = {
             '_id': 0,  # Excluir el campo _id
-            'date': 1,
+            'month': 1,
             'country': 1,
             'mau': 1,
             'new_users': 1,
+            'subscribed': 1,
             'interactions': 1,
             'audio': 1,
             'text': 1
@@ -112,20 +121,34 @@ def get_monthly_data(collection, start_date, end_date):
         # Verificar si se encontraron documentos
         if not documentos:
             print(f"No se encontraron documentos en la colección '{collection.name}' entre {start_date} y {end_date}.")
-            return pd.DataFrame(columns=['date', 'country', 'mau', 'new_users', 'interactions', 'audio', 'text'])
+            return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed', 'interactions', 'audio', 'text'])
 
         # Convertir a DataFrame
         df = pd.DataFrame(documentos)
 
         # Cambiar nombre
         df = df.rename(columns={'mau': 'count'})
+        df = df.rename(columns={'month': 'date'})
         # Asegurar que la columna 'date' esté en formato string 'yyyy-mm-dd'
         #df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
         return df
     
     except Exception as e:
         print(f"Error al extraer datos: {e}")
-        return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'interactions', 'audio', 'text'])
+        return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed','interactions', 'audio', 'text'])
+
+def add_total_per_date (df):
+    # Calcular totales por fecha
+    total_por_fecha = df.groupby('date', as_index=False)[['count', 'new_users', 'interactions', 'audio', 'text', 'subscribed']].sum()
+    total_por_fecha['country'] = 'Total'
+
+    # Reordenar columnas para que coincidan
+    total_por_fecha = total_por_fecha[df.columns]
+
+    # Concatenar al DataFrame original
+    df = pd.concat([df, total_por_fecha], ignore_index=True)
+    return df
+
 
 # Para formatear los datos históricos
 def format_number_smart(number):
@@ -171,7 +194,7 @@ def calculate_total_metrics(collection_dau_by_country, collection_mau_by_country
         'total_text': format_number_smart(total_text)
     }
 
-def get_dau_mau_ratio_data(collection_dau, collection_mau, start_date, end_date, countries=None):
+def get_dau_mau_ratio_data(dau_data, mau_data, countries=None):
     """
     Obtiene datos combinados de DAU y MAU para calcular el ratio DAU/MAU
     
@@ -185,13 +208,9 @@ def get_dau_mau_ratio_data(collection_dau, collection_mau, start_date, end_date,
     Returns:
         DataFrame con columnas: year_month, country, avg_dau, mau, dau_mau_ratio
     """
-    
-    # 1. Obtener datos DAU
-    dau_data = get_daily_data(collection_dau, start_date, end_date)
-    
-    # 2. Obtener datos MAU  
-    mau_data = get_monthly_data(collection_mau, start_date, end_date)
-    
+    dau_data = dau_data.copy()
+    mau_data = mau_data.copy()
+
     # 3. Filtrar por países si se especifica
     if countries:
         dau_data = dau_data[dau_data['country'].isin(countries)]
