@@ -155,6 +155,36 @@ def new_users_by_country(data, countries, view):
                         title_x=0.5, hovermode='x unified', showlegend=True)    
     return fig
 
+def subs_by_country_chart(data, countries, view):
+    # Filtrar datos por países seleccionados
+    filtered = data[data["country"].isin(countries)]
+    
+    # Manejar caso de datos vacíos
+    if filtered.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data available for the selected countries",
+            xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False
+        )
+        return fig
+    
+    # Crear gráfico de área superpuesta
+    fig = go.Figure()
+    for country in countries:
+        country_data = filtered[filtered['country'] == country]
+        fig.add_trace(
+            go.Scatter(x=country_data['date'],y=country_data['subscribed'],name=country,mode='lines+markers',
+                        line_shape='spline',  # Líneas suaves
+                        marker=dict(size=4, symbol='circle'),
+                        fill='tozeroy',  # Área desde y=0
+                        opacity=0.5  # Transparencia para ver áreas superpuestas
+            )
+        )
+    
+    # Configurar layout
+    fig.update_layout(yaxis_title="Users", xaxis_title="Date", yaxis_tickformat=',', title=f"{view} Subscribed Active Users",
+                        title_x=0.5, hovermode='x unified', showlegend=True)    
+    return fig
 
 def dau_mau_ratio_chart(data, countries, title="DAU/MAU Ratio"):
     """
