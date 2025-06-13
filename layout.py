@@ -10,9 +10,14 @@ timezone = pytz.timezone('America/Argentina/Buenos_Aires')
 def serve_layout():
     # Layout
     return html.Div([
+        # Agregar el logo de la empresa
+        html.Img(
+            src='/assets/TME_LOGO_BOT_2.png',
+            style={'height': '50px','width': 'auto','margin': '10px'}
+        ),
         # Header
         html.Div([
-            html.H1("Dashboard de Usuarios - TranscribeMe", 
+            html.H1("Dashboard de Usuarios", 
                     style={"color": "#0AB84D", "marginBottom": "10px"}),
             html.Hr(style={"margin": "0 0 20px 0"}),
         ], style={"textAlign": "center", "paddingTop": "20px"}),
