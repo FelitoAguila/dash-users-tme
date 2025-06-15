@@ -163,6 +163,11 @@ def format_number_smart(number):
             return f"{number:,.0f}".replace(',', '.')
     return str(number)
 
+def get_total_users_by_country (collection):
+    data = list(collection.find({}, {'_id': 0}))
+    data_df = pd.DataFrame(data)
+    return data_df
+
 # MÉTRICAS TOTALES FIJAS - Se calculan una sola vez al iniciar la app
 def calculate_total_metrics(collection_dau_by_country, collection_mau_by_country):
     """Calcula métricas totales desde 2023-01-01 hasta hoy - SOLO SE EJECUTA UNA VEZ"""
