@@ -221,3 +221,68 @@ def dau_mau_ratio_chart(data, countries, title="DAU/MAU Ratio"):
     # Configurar layout
     fig.update_layout(xaxis_title="Mes", yaxis_title="Ratio DAU/MAU", yaxis_tickformat=',', title_x=0.5) 
     return fig
+
+def heat_map_users_by_country(total_users_by_country):
+    fig = go.Figure(data=go.Choropleth(
+        locations=total_users_by_country['country'],
+        locationmode='country names',
+        z=total_users_by_country['Users'],
+        text=total_users_by_country['country'],
+        colorscale=[
+            [0.0, 'rgb(220, 255, 220)'],
+            [0.02, 'rgb(180, 240, 180)'],
+            [0.1, 'rgb(140, 220, 140)'],
+            [0.3, 'rgb(100, 200, 100)'],
+            [0.6, 'rgb(60, 160, 60)'],
+            [1.0, 'rgb(0, 100, 0)']
+        ],
+        autocolorscale=False,
+        marker_line_color='darkgray',
+        marker_line_width=0.5,
+        #colorbar_title='Users',
+        hovertemplate='%{text}: %{z}<extra></extra>'
+    ))
+
+    fig.update_layout(
+        title_text='Includes All Historic Free Users',
+        geo=dict(
+            showframe=False,
+            showcoastlines=False,
+            projection_type='equirectangular'
+        ),
+        margin={"r":0, "t":50, "l":0, "b":0},
+        title_x=0.5
+    )
+    
+    return fig
+
+def tree_map_users_by_country(df_treemap):
+    fig_treemap = px.treemap(
+        df_treemap,
+        path=['country'],
+        values='Users',
+        color='Share',
+        color_continuous_scale=[
+            [0.0, 'rgb(200, 245, 200)'],
+            [0.05, 'rgb(160, 230, 160)'],
+            [0.1, 'rgb(120, 210, 120)'],
+            [0.3, 'rgb(80, 180, 80)'],
+            [1.0, 'rgb(0, 120, 0)']
+        ],
+        title='Includes All Historic Free Users',
+        hover_data={'Users': ':,.0f', 'Share': ':.2f%'}
+    )
+    fig_treemap.update_traces(
+        texttemplate='%{label}<br>%{value:,} users<br>%{percentRoot:.2%}',
+        textposition='middle center',
+        #textfont=dict(size=14, color='black'),
+        marker=dict(line=dict(color='black', width=1)),
+        hovertemplate='Country: %{label}<br>Users: %{value:,.0f}<br>Share: %{customdata[1]:.2f}%'
+    )
+    fig_treemap.update_layout(
+        margin={"r":0, "t":50, "l":0, "b":0},
+        title_x=0.5,
+        coloraxis_colorbar_title='Share (%)'
+    )
+    
+    return fig_treemap
