@@ -4,10 +4,10 @@ import dash_bootstrap_components as dbc
 from datetime import datetime
 from dotenv import load_dotenv
 import os
-from get_data import (get_daily_data, get_monthly_data, add_total_per_date, 
+from get_data import (get_daily_data, get_monthly_data, add_total_per_date, get_total_users_by_country,
                       calculate_total_metrics, get_dau_mau_ratio_data)
-from charts import (active_users_chart, total_interactions_chart, 
-                    users_by_country, new_users_by_country, 
+from charts import (active_users_chart, total_interactions_chart, heat_map_users_by_country,
+                    users_by_country, new_users_by_country, tree_map_users_by_country,
                     new_users_percentage_chart, interactions_percentage_chart, subs_by_country_chart,
                     dau_mau_ratio_chart, active_subscribed_users_chart, subscribed_users_percent_chart)
 
@@ -20,12 +20,17 @@ collection_freePlanCycles = db_TME['freePlanCycles']
 db_TME_charts = client['TranscribeMe-charts']
 collection_dau_by_country = db_TME_charts['dau-by-country']
 collection_mau_by_country = db_TME_charts['mau-by-country']
+collection_total_users_by_country = db_TME_charts['total-users-by-country']
 
 # Cache para gráficos (datos que cambian según filtros)
 _charts_cache = {}
 
 # Calcular métricas una sola vez al importar el módulo
 TOTAL_METRICS = calculate_total_metrics(collection_dau_by_country, collection_mau_by_country)
+
+# Calcular total_users_df una sola vez al importar el módulo
+total_users_by_country = get_total_users_by_country(collection_total_users_by_country)
+
 
 def get_chart_data(view, start_date, end_date):
     """Obtiene datos para gráficos con cache"""
@@ -104,6 +109,8 @@ def register_callbacks(app):
                     html.Div([html.H3(f"{view} Audio and Text Percentage", style={'textAlign': 'center'}), dcc.Graph(id='audio_text_percentage_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
                     html.Div([html.H3(f"{view} Active Subscribed Users", style={'textAlign': 'center'}), dcc.Graph(id='total_active_subscribed_users_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
                     html.Div([html.H3(f"{view} Subscribed Users Percentage", style={'textAlign': 'center'}), dcc.Graph(id='subscribed_users_percent_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
+                    html.Div([html.H3("Total Free Users by Country", style={'textAlign': 'center'}), dcc.Graph(id='heat_map_users_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
+                    html.Div([html.H3("Country Share of Free Users", style={'textAlign': 'center'}), dcc.Graph(id='tree_map_users_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'})
                 ], style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'space-around'})
             ])
         elif active_tab == 'países':
@@ -140,7 +147,9 @@ def register_callbacks(app):
             Output('total_interactions_fig', 'figure'),
             Output('audio_text_percentage_fig', 'figure'),
             Output('total_active_subscribed_users_fig', 'figure'),
-            Output('subscribed_users_percent_fig', 'figure')
+            Output('subscribed_users_percent_fig', 'figure'),
+            Output('heat_map_users_fig', 'figure'),
+            Output('tree_map_users_fig', 'figure')
         ],
         [
             Input('start_date_picker', 'date'), 
@@ -171,8 +180,13 @@ def register_callbacks(app):
         audio_text_percentage_fig = interactions_percentage_chart(total_interactions_by_date, view)
         total_active_subscribed_users_fig = active_subscribed_users_chart(total_active_subscribed_users, view)
         subscribed_users_percent_fig = subscribed_users_percent_chart(total_active_subscribed_users, view)
+        heat_map_users_fig = heat_map_users_by_country(total_users_by_country)
+        tree_map_users_fig = tree_map_users_by_country(total_users_by_country)
         
-        return total_active_users_fig, new_users_percentage_fig, total_interactions_fig, audio_text_percentage_fig, total_active_subscribed_users_fig, subscribed_users_percent_fig
+        return (total_active_users_fig, new_users_percentage_fig, 
+                total_interactions_fig, audio_text_percentage_fig, 
+                total_active_subscribed_users_fig, subscribed_users_percent_fig,
+                heat_map_users_fig, tree_map_users_fig)
     
     # Callback para gráficos por país - SÍ cambian con filtros
     @app.callback(
