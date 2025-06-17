@@ -163,10 +163,166 @@ def format_number_smart(number):
             return f"{number:,.0f}".replace(',', '.')
     return str(number)
 
-def get_total_users_by_country (collection):
-    data = list(collection.find({}, {'_id': 0}))
-    data_df = pd.DataFrame(data)
-    return data_df
+def get_total_free_users(collection):
+    # Pipeline de agregación
+    pipeline = [
+        # 1. Agrupar por país y contar usuarios únicos
+        {
+            "$group": {
+                "_id": "$country",
+                "Users": {"$addToSet": "$user_id"}  # Conjunto de user_id únicos
+            }
+        },
+        # 2. Contar el número de usuarios por país
+        {
+            "$project": {
+                "country": "$_id",
+                "Users": {"$size": "$Users"},  # Tamaño del conjunto de usuarios
+                "_id": 0
+            }
+        },
+        # 3. Ordenar por país
+        {"$sort": {"country": 1}}
+    ]
+    
+    # Ejecutar el pipeline
+    results = list(collection.aggregate(pipeline))
+    
+    # Convertir a DataFrame
+    df = pd.DataFrame(results)
+    
+    # Calcular el total de usuarios
+    total_users = df['Users'].sum() if not df.empty else 1  # Evitar división por 0
+    
+    # Calcular el Share (%)
+    df['Share'] = (df['Users'] / total_users * 100).round(2)
+    
+    # Reordenar columnas
+    df = df[['country', 'Users', 'Share']]
+    
+    return df
+
+def get_heavy_free_users(collection):
+    # Pipeline de agregación
+    pipeline = [
+        # 1. Filtrar usuarios donde cycles_consumed >= max_cycles
+        {"$match": {"$expr": {"$gte": ["$cycles_consumed", "$max_cycles"]}}},
+        # 2. Agrupar por país y contar usuarios únicos
+        {
+            "$group": {
+                "_id": "$country",
+                "Users": {"$addToSet": "$user_id"}  # Conjunto de user_id únicos
+            }
+        },
+        # 3. Contar el número de usuarios por país
+        {
+            "$project": {
+                "country": "$_id",
+                "Users": {"$size": "$Users"},  # Tamaño del conjunto de usuarios
+                "_id": 0
+            }
+        },
+        # 4. Ordenar por país
+        {"$sort": {"country": 1}}
+    ]
+    
+    # Ejecutar el pipeline
+    results = list(collection.aggregate(pipeline))
+    
+    # Convertir a DataFrame
+    df = pd.DataFrame(results)
+    
+    # Calcular el total de heavy_free_users
+    total_users = df['Users'].sum() if not df.empty else 1  # Evitar división por 0
+    
+    # Calcular el Share (%)
+    df['Share'] = (df['Users'] / total_users * 100).round(2)
+    
+    # Reordenar columnas
+    df = df[['country', 'Users', 'Share']]
+    
+    return df
+
+def get_users_by_country_and_cycles(collection):
+    pipeline = [
+        {
+            "$group": {
+                "_id": {
+                    "country": "$country",
+                    "cycles_consumed": "$cycles_consumed"
+                },
+                "Users": {"$sum": 1}
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "country": "$_id.country",
+                "cycles_consumed": "$_id.cycles_consumed",
+                "Users": 1
+            }
+        },
+        {
+            "$sort": {
+                "country": 1,
+                "cycles_consumed": 1
+            }
+        }
+    ]
+
+    results = list(collection.aggregate(pipeline))
+    # Convertir a DataFrame
+    df = pd.DataFrame(results)
+    
+    return df
+
+def aggregate_user_cycles(collection):
+    pipeline = [
+        {
+            '$project': {
+                'cycles_consumed': 1,
+                'country': 1,
+                'year': {'$year': {'$dateFromString': {'dateString': '$last_date'}}}
+            }
+        },
+        {
+            '$group': {
+                '_id': {
+                    'cycles_consumed': '$cycles_consumed',
+                    'country': '$country',
+                    'year': '$year'
+                },
+                'Users': {'$sum': 1}
+            }
+        },
+        {
+            '$project': {
+                '_id': 0,
+                'cycles_consumed': '$_id.cycles_consumed',
+                'country': '$_id.country',
+                'last_date': '$_id.year',
+                'Users': 1
+            }
+        }
+    ]
+    
+    result = list(collection.aggregate(pipeline))
+    df = pd.DataFrame(result)
+    return df
+
+def add_total_as_country (df):
+    total_df = df.groupby(['cycles_consumed', 'last_date'])['Users'].sum().reset_index()
+    total_df['country'] = 'Total'
+    result = pd.concat([df, total_df])
+    return result
+
+def filter_user_cycles(df, countries, year_range):
+    start_year, end_year = year_range
+    filtered_df = df[
+        df['country'].isin(countries) &
+        df['last_date'].between(start_year, end_year)
+    ]
+    return filtered_df
 
 # MÉTRICAS TOTALES FIJAS - Se calculan una sola vez al iniciar la app
 def calculate_total_metrics(collection_dau_by_country, collection_mau_by_country):
