@@ -222,7 +222,7 @@ def dau_mau_ratio_chart(data, countries, title="DAU/MAU Ratio"):
     fig.update_layout(xaxis_title="Mes", yaxis_title="Ratio DAU/MAU", yaxis_tickformat=',', title_x=0.5) 
     return fig
 
-def heat_map_users_by_country(total_users_by_country):
+def heat_map_users_by_country(total_users_by_country, title = 'Includes All Historic Free Users'):
     fig = go.Figure(data=go.Choropleth(
         locations=total_users_by_country['country'],
         locationmode='country names',
@@ -244,7 +244,7 @@ def heat_map_users_by_country(total_users_by_country):
     ))
 
     fig.update_layout(
-        title_text='Includes All Historic Free Users',
+        title_text=title,
         geo=dict(
             showframe=False,
             showcoastlines=False,
@@ -256,7 +256,7 @@ def heat_map_users_by_country(total_users_by_country):
     
     return fig
 
-def tree_map_users_by_country(df_treemap):
+def tree_map_users_by_country(df_treemap, title = 'Includes All Historic Free Users'):
     fig_treemap = px.treemap(
         df_treemap,
         path=['country'],
@@ -269,7 +269,7 @@ def tree_map_users_by_country(df_treemap):
             [0.3, 'rgb(80, 180, 80)'],
             [1.0, 'rgb(0, 120, 0)']
         ],
-        title='Includes All Historic Free Users',
+        title=title,
         hover_data={'Users': ':,.0f', 'Share': ':.2f%'}
     )
     fig_treemap.update_traces(
@@ -286,3 +286,58 @@ def tree_map_users_by_country(df_treemap):
     )
     
     return fig_treemap
+
+def plot_histogram_users_by_cycles(df):
+    total_df = (
+        df.groupby("cycles_consumed", as_index=False)["Users"]
+        .sum()
+        .assign(country="Total")
+    )
+
+    fig = px.bar(
+        total_df,
+        x="cycles_consumed",
+        y="Users",
+        labels={
+            "cycles_consumed": "Cycles Consumed",
+            "Users": "Number of Users",
+        },
+        title="Users by Cycles Consumed"
+    )
+    
+    fig.update_layout(
+        xaxis_title="Cycles Consumed",
+        yaxis_title="Number of Users",
+        title_x=0.5
+    )
+    
+    return fig
+
+def plot_user_histogram_faceted(df):
+    fig = px.histogram(
+        df,
+        x='cycles_consumed',
+        y='Users',
+        color='last_date',
+        facet_col='country',
+        barmode='stack',
+        nbins=21,
+        title='Users by Consumed Cycles (per country and year)'
+    )
+
+    # Limpiar etiquetas "country=Argentina" → solo "Argentina"
+    fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+    # Eliminar títulos de ejes X individuales
+    fig.for_each_xaxis(lambda x: x.update(title=''))
+
+    # Mostrar el eje X solo una vez
+    fig.update_xaxes(matches=None, showticklabels=True)
+    fig.update_traces(marker_line_width=1, marker_line_color='white')
+
+    fig.update_layout(
+        xaxis_title='Cycles Consumed',
+        yaxis_title='Free Users',
+        legend_title='Year'
+    )
+
+    return fig
