@@ -8,7 +8,7 @@ from get_data import (get_daily_data, get_monthly_data, add_total_per_date, get_
                       get_heavy_free_users, aggregate_user_cycles, add_total_as_country, filter_user_cycles,
                       calculate_total_metrics, get_dau_mau_ratio_data)
 from charts import (active_users_chart, total_interactions_chart, heat_map_users_by_country, plot_user_histogram_faceted,
-                    users_by_country, new_users_by_country, tree_map_users_by_country,
+                    users_by_country, new_users_by_country, tree_map_users_by_country, interactions_by_country_chart,
                     new_users_percentage_chart, interactions_percentage_chart, subs_by_country_chart, free_users_by_country,
                     dau_mau_ratio_chart, active_subscribed_users_chart, subscribed_users_percent_chart)
 
@@ -141,6 +141,7 @@ def register_callbacks(app):
                     html.Div([html.H3(f"{view} New Users Percentage", style={'textAlign': 'center'}), 
                               dcc.Graph(id='new_users_percentage_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
                     html.Div([html.H3(f"{view} Interactions", style={'textAlign': 'center'}), 
+                              #dcc.RadioItems(id = 'interactions_selector', options = ['Total Active Users', 'Free Users', 'Subscribed_Users'], value = 'Total Active Users',inline=True, labelStyle={'margin-right': '20px'}, style={'marginTop': '10px', 'textAlign': 'center'}), 
                               dcc.Graph(id='total_interactions_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
                     html.Div([html.H3(f"{view} Audio and Text Percentage", style={'textAlign': 'center'}), 
                               dcc.Graph(id='audio_text_percentage_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
@@ -155,7 +156,9 @@ def register_callbacks(app):
                     html.Div([html.H3("Country Share of Free Users", style={'textAlign': 'center'}), 
                               dcc.Graph(id='tree_map_free_users_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
                     html.Div([html.H3("Free Users Usage", style={'textAlign': 'center'}),
-                              dcc.Dropdown(id ='countries', options = countries, value = ['Argentina','Total'], multi=True),
+                              html.Label("Select countries", style={'marginBottom': '10px'}),
+                              dcc.Dropdown(id ='countries', options = countries, value = ['Argentina','Total'], multi=True, style={'marginBottom': '20px'}),
+                              html.Label("Select years range", style={'marginBottom': '10px'}),
                               dcc.RangeSlider(id = 'years', min=2023, max=2025, step =1, marks={2023: '2023', 2024:'2024', 2025:'2025'},value=[2023, 2025]), 
                               dcc.Graph(id='free_users_usage_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),                              
                 ], style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'space-around'})
@@ -173,25 +176,39 @@ def register_callbacks(app):
             
             return html.Div([
                 html.Div([
-                    html.Label("Selecciona país(es):"),
-                    dcc.Dropdown(id="country_dropdown", options=[{"label": c, "value": c} for c in countries],
-                                value=data_with_total.groupby('country')['count'].sum().sort_values(ascending=False).head(15).index.tolist(),
-                                multi=True),
-                    html.H3(f"{view} Active Users", style={'textAlign': 'center'}), 
-                    dcc.RadioItems(id = 'dau_selector', options = ['Total Active Users', 'Free Users', 'Subscribed_Users'], value = 'Total Active Users',inline=True, labelStyle={'margin-right': '20px'}, style={'marginTop': '10px', 'textAlign': 'center'}), 
-                    dcc.Graph(id='dau_by_country')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
+                        html.Label("Selecciona país(es):"),
+                        dcc.Dropdown(id="country_dropdown", options=[{"label": c, "value": c} for c in countries],
+                                    value=data_with_total.groupby('country')['count'].sum().sort_values(ascending=False).head(15).index.tolist(),
+                                    multi=True),
+                        html.H3(f"{view} Active Users", style={'textAlign': 'center'}), 
+                        dcc.RadioItems(id = 'dau_selector', options = ['Total Active Users', 'Free Users', 'Subscribed_Users'], value = 'Total Active Users',inline=True, labelStyle={'margin-right': '20px'}, style={'marginTop': '10px', 'textAlign': 'center'}), 
+                        dcc.Graph(id='dau_by_country')], 
+                    style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
                 html.Div([
-                    html.Label("Selecciona país(es):"),
-                    dcc.Dropdown(id="country_dropdown", options=[{"label": c, "value": c} for c in countries],
-                                value=data_with_total.groupby('country')['count'].sum().sort_values(ascending=False).head(15).index.tolist(),
-                                multi=True),
-                    html.H3(f"{view} New Users", style={'textAlign': 'center'}), dcc.Graph(id='new_users_by_country')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
+                        html.Label("Selecciona país(es):"),
+                        dcc.Dropdown(id="country_dropdown", options=[{"label": c, "value": c} for c in countries],
+                                    value=data_with_total.groupby('country')['count'].sum().sort_values(ascending=False).head(15).index.tolist(),
+                                    multi=True),
+                        html.H3(f"{view} New Users", style={'textAlign': 'center'}), 
+                        dcc.Graph(id='new_users_by_country')], 
+                    style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
                 html.Div([
-                    html.Label("Selecciona país(es):"),
-                    dcc.Dropdown(id="country_dropdown", options=[{"label": c, "value": c} for c in countries],
-                                value=data_with_total.groupby('country')['count'].sum().sort_values(ascending=False).head(15).index.tolist(),
-                                multi=True),
-                    html.H3("DAU/MAU Ratio por Mes", style={'textAlign': 'center'}), dcc.Graph(id='dau_mau_ratio_chart')], style={'margin': '20px 10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'})
+                        html.Label("Selecciona país(es):"),
+                        dcc.Dropdown(id="country_dropdown", options=[{"label": c, "value": c} for c in countries],
+                                    value=data_with_total.groupby('country')['count'].sum().sort_values(ascending=False).head(15).index.tolist(),
+                                    multi=True),
+                        html.H3(f"{view} Interactions", style={'textAlign': 'center'}), 
+                        dcc.RadioItems(id = 'interaction_selector', options = ['Total Interactions', 'Audio', 'Text'], value = 'Total Interactions',inline=True, labelStyle={'margin-right': '20px'}, style={'marginTop': '10px', 'textAlign': 'center'}), 
+                        dcc.Graph(id='interactions_by_country')], 
+                    style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
+                html.Div([
+                        html.Label("Selecciona país(es):"),
+                        dcc.Dropdown(id="country_dropdown", options=[{"label": c, "value": c} for c in countries],
+                                    value=data_with_total.groupby('country')['count'].sum().sort_values(ascending=False).head(15).index.tolist(),
+                                    multi=True),
+                        html.H3("DAU/MAU Ratio por Mes", style={'textAlign': 'center'}), 
+                        dcc.Graph(id='dau_mau_ratio_chart')], 
+                    style={'margin': '20px 10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'})
             ])
         return html.Div([html.P("Selecciona una pestaña para ver el contenido.")])
     
@@ -214,7 +231,8 @@ def register_callbacks(app):
             Input('view_selector', 'value'),
             Input('free_users_data', 'value'),
             Input('countries', 'value'),
-            Input('years', 'value')
+            Input('years', 'value'),
+            #Input('interactions_selector', 'value')
         ]
     )
     def update_general_charts(start_date, end_date, view, free_users_data_selector,countries_list, year_range):
@@ -264,17 +282,19 @@ def register_callbacks(app):
     @app.callback(
         [
             Output('dau_by_country', 'figure'),
-            Output('new_users_by_country', 'figure')
+            Output('new_users_by_country', 'figure'),
+            Output('interactions_by_country', 'figure')
         ],
         [
             Input('start_date_picker', 'date'), 
             Input('end_date_picker', 'date'),
             Input('view_selector', 'value'),
             Input("country_dropdown", "value"),
-            Input('dau_selector', 'value')
+            Input('dau_selector', 'value'),
+            Input('interaction_selector', 'value')
         ]
     )
-    def update_charts_by_country(start_date, end_date, view, countries, dau_selector):
+    def update_charts_by_country(start_date, end_date, view, countries, dau_selector, interaction_selector):
         """Actualiza gráficos por país según filtros seleccionados"""
         # Parsear fechas
         start = datetime.strptime(start_date[:10], '%Y-%m-%d')
@@ -289,7 +309,8 @@ def register_callbacks(app):
         # Generar gráficos por país
         users_by_country_fig = get_dau_chart(data_with_total, dau_selector, countries, view)
         new_users_by_country_fig = new_users_by_country(data_with_total, countries, view)
-        return users_by_country_fig, new_users_by_country_fig
+        interactions_by_country_fig = interactions_by_country_chart(data_with_total, countries, view, interaction_selector)
+        return users_by_country_fig, new_users_by_country_fig, interactions_by_country_fig
     
     # Nuevo callback para el gráfico DAU/MAU ratio
     @app.callback(
