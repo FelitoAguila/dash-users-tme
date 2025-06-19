@@ -124,6 +124,68 @@ def users_by_country(data, countries, view):
                         title_x=0.5, hovermode='x unified', showlegend=True)    
     return fig
 
+def country_share(data, countries, view, selector, total_selector):
+    # Crear una copia de los datos para no modificar el original
+    df = data.copy()
+    
+    # Crear categoría 'Others' para países no seleccionados
+    df['country'] = df['country'].apply(lambda x: x if x in countries else 'Others')
+    
+    # Agrupar por fecha y país, sumando los conteos
+    grouped = df.groupby(['date', 'country'])[['count', 'subscribed']].sum().reset_index()
+    grouped['free_users'] = grouped['count'] - grouped['subscribed']
+
+    # Calcular porcentajes por día
+    grouped['count_pct'] = grouped['count'] / grouped.groupby('date')['count'].transform('sum') * 100
+    if total_selector == "Relative to selected category total":
+        grouped['subscribed_pct'] = grouped['subscribed'] / grouped.groupby('date')['subscribed'].transform('sum') * 100
+        grouped['free_users_pct'] = grouped['free_users'] / grouped.groupby('date')['free_users'].transform('sum') * 100
+    elif total_selector == "Relative to total":
+        grouped['subscribed_pct'] = grouped['subscribed'] / grouped.groupby('date')['count'].transform('sum') * 100
+        grouped['free_users_pct'] = grouped['free_users'] / grouped.groupby('date')['count'].transform('sum') * 100
+    
+    # Manejar caso de datos vacíos
+    if grouped.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data available for the selected countries",
+            xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False
+        )
+        return fig
+
+    if selector == 'Total Active Users':
+        grouped['y'] = grouped['count_pct']
+    elif selector == 'Subscribed Users':
+        grouped['y'] = grouped['subscribed_pct']
+    elif selector == 'Free Users':
+        grouped['y'] = grouped['free_users_pct']
+    else:
+        raise ValueError("Selector inválido")
+    grouped['y'] = grouped['y'].round(2)  #para redondear porcentajes
+    
+    # Crear figura
+    fig = go.Figure()
+
+    # Agregar una traza por país
+    for country in grouped['country'].unique():
+        country_data = grouped[grouped['country'] == country]
+        fig.add_trace(go.Bar(x=country_data['date'], y=country_data['y'], name=country))
+
+    # Configurar layout
+    fig.update_layout(
+        barmode='stack',
+        yaxis_title="Country Share (%)",
+        xaxis_title="Date",
+        title=f"{view} Country Share",
+        title_x=0.5,
+        hovermode='x unified',
+        yaxis=dict(tickvals=[0, 25, 50, 75, 100], ticktext=['0%', '25%', '50%', '75%', '100%']),
+        height=500,
+        legend_title="Country"
+    )
+
+    return fig
+
 def interactions_by_country_chart(data, countries, view, selector):
     # Filtrar datos por países seleccionados
     filtered = data[data["country"].isin(countries)]
