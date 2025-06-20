@@ -188,7 +188,7 @@ def register_callbacks(app):
                 html.Div([
                         html.Label("Selecciona país(es):"),
                         dcc.Dropdown(id="country_dropdown_new_users", options=[{"label": c, "value": c} for c in countries],
-                                    value=data_with_total.groupby('country')['count'].sum().sort_values(ascending=False).head(15).index.tolist(),
+                                    value=data_with_total.groupby('country')['new_users'].sum().sort_values(ascending=False).head(15).index.tolist(),
                                     multi=True),
                         html.H3(f"{view} New Users", style={'textAlign': 'center'}), 
                         dcc.Graph(id='new_users_by_country')], 
@@ -197,7 +197,7 @@ def register_callbacks(app):
                 html.Div([
                         html.Label("Selecciona país(es):"),
                         dcc.Dropdown(id="country_dropdown_interactions", options=[{"label": c, "value": c} for c in countries],
-                                    value=data_with_total.groupby('country')['count'].sum().sort_values(ascending=False).head(15).index.tolist(),
+                                    value=data_with_total.groupby('country')['interactions'].sum().sort_values(ascending=False).head(15).index.tolist(),
                                     multi=True),
                         html.H3(f"{view} Interactions", style={'textAlign': 'center'}), 
                         dcc.RadioItems(id = 'interaction_selector', options = ['Total Interactions', 'Audio', 'Text'], value = 'Total Interactions',inline=True, labelStyle={'margin-right': '20px'}, style={'marginTop': '10px', 'textAlign': 'center'}), 
