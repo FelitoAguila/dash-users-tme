@@ -3,6 +3,7 @@ from dash import Input, Output, html, dcc
 import dash_bootstrap_components as dbc
 from datetime import datetime
 from dotenv import load_dotenv
+import pytz
 import os
 from get_data import (get_daily_data, get_monthly_data, add_total_per_date, get_total_free_users,
                       get_heavy_free_users, aggregate_user_cycles, add_total_as_country, filter_user_cycles,
@@ -152,6 +153,20 @@ def register_callbacks(app):
                     style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
                     html.Div([
                         html.H3("Types in INVALID_FORMAT Errors", style={'textAlign': 'center'}), 
+                        html.Label("Start date", style={'marginRight': '10px'}),
+                        dcc.DatePickerSingle(id='start_date_invalid_format_types', 
+                                             display_format='YYYY-MM-DD',
+                                             initial_visible_month=datetime(2025, 1, 1),
+                                             date=datetime(2025, 1, 1),  # Fecha inicial: enero-2025
+                                             min_date_allowed=datetime(2024, 1, 1),
+                                             style={'marginRight': '20px'}),
+                        html.Label("End date", style={'marginRight': '10px'}),
+                        dcc.DatePickerSingle(id='end_date_invalid_format_types', 
+                                             display_format='YYYY-MM-DD',
+                                             initial_visible_month=datetime(2025, 6, 1),
+                                             date=datetime.now(pytz.timezone('America/Argentina/Buenos_Aires')),
+                                             min_date_allowed=datetime(2024, 1, 1),
+                                             style={'marginRight': '20px'}),
                         dcc.Graph(id='invalid_format_types')], 
                     style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
 
@@ -286,13 +301,15 @@ def register_callbacks(app):
         [
             Input('errors_dropdown', 'value'),
             Input('view_selector', 'value'),
+            Input('start_date_invalid_format_types', 'date'),
+            Input('end_date_invalid_format_types', 'date')
         ]
     )
-    def update_errors_charts(errors, view):
+    def update_errors_charts(errors, view, start, end):
         errors_data = get_errors_by_date(collection_errors_by_date, view)
         errors_by_date_fig = errors_by_date_chart(errors_data, errors, view)
         
-        invalid_format_types = get_invalid_format_types(collection_invalid_format_types)
+        invalid_format_types = get_invalid_format_types(collection_invalid_format_types, start, end)
         invalid_format_types_fig = invalid_format_types_chart(invalid_format_types)
         return errors_by_date_fig, invalid_format_types_fig
     
