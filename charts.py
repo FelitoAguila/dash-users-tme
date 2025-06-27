@@ -473,3 +473,78 @@ def plot_user_histogram_faceted(df):
     )
 
     return fig
+
+def errors_by_date_chart(data, errors, view):
+    # Crear gráfico de área superpuesta
+    fig = go.Figure()
+    for error in errors:
+        fig.add_trace(
+            go.Scatter(x=data['localdate'],y=data[error],name=error,mode='lines+markers',
+                        line_shape='spline',  # Líneas suaves
+                        marker=dict(size=4, symbol='circle'),
+                        fill='tozeroy',  # Área desde y=0
+                        opacity=0.5  # Transparencia para ver áreas superpuestas
+            )
+        )
+    
+    # Configurar layout
+    fig.update_layout(yaxis_title="Errors", xaxis_title="Date", yaxis_tickformat=',', title=f"{view} Errors from 2024-01-01 to date",
+                        title_x=0.5, hovermode='x unified', showlegend=True)    
+    return fig
+
+def invalid_format_types_chart(df):
+    # Calcular porcentajes
+    total = df['count'].sum()
+    df['percentage'] = df['count'] / total * 100
+
+    # Separar categorías con < 5% y agruparlas en "Others"
+    threshold = 5
+    others_df = df[df['percentage'] < threshold]
+    main_df = df[df['percentage'] >= threshold]
+
+    # Crear el grupo "Others"
+    others_count = others_df['count'].sum()
+    others_types = ', '.join(others_df['type'].tolist())  # Lista de categorías en "Others"
+    others_row = pd.DataFrame({
+        'type': ['Others'],
+        'count': [others_count],
+        'percentage': [others_count / total * 100],
+        'details': [f"Others ({others_types})"]  # Detalle para hover y leyenda
+    })
+
+    # Combinar DataFrames
+    df_final = pd.concat([main_df, others_row], ignore_index=True)
+
+    # Crear gráfico de donut
+    fig = px.pie(df_final, values='count', names='type', 
+                 title='Includes all INVALID_FORMAT Errors from 2024-01-01 to date',
+                 hole=0.4,  # Tamaño del agujero
+                 color_discrete_sequence=px.colors.qualitative.Pastel)  # Paleta de colores suaves
+
+    # Personalizar las etiquetas y el hover
+    fig.update_traces(
+        textinfo='percent+label',  # Mostrar porcentaje y etiqueta en el gráfico
+        textfont_size=12,
+        marker=dict(line=dict(color='white', width=2)),  # Bordes blancos
+        customdata=df_final['details'] if 'details' in df_final else None,  # Datos para hover
+        hovertemplate='%{label}<br>%{percent:.1%}<br>Count: %{value}<br>%{customdata}<extra></extra>'
+    )
+
+    # Personalizar el diseño
+    fig.update_layout(
+        showlegend=True,  # Mostrar leyenda
+        template='plotly_white',  # Tema claro
+        title_x=0.5,  # Centrar título
+        font=dict(size=12),
+        legend=dict(
+            title='Types',
+            itemsizing='constant'
+        )
+    )
+
+    # Actualizar la leyenda para que "Others" muestre los detalles
+    for trace in fig.data:
+        if trace.name == 'Others':
+            trace.name = others_row['details'].iloc[0]  # Mostrar detalles en la leyenda
+
+    return fig
