@@ -412,7 +412,10 @@ def get_errors_by_date (collection, view):
         df = df.groupby('localdate').sum().reset_index()
     return df
 
-def get_invalid_format_types (collection):
-    results = list(collection.find({}, {'_id': 0}))
+def get_invalid_format_types (collection, start, end):
+    # Definir el filtro de fechas
+    query = {'localdate': {'$gte': start,'$lte': end}}
+    results = list(collection.find(query, {'_id': 0, 'localdate': 0}))
     df = pd.DataFrame(results)
-    return df
+    new_df = pd.DataFrame({'type': df.columns,'count': df.sum()}).reset_index(drop=True)
+    return new_df
