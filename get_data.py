@@ -401,3 +401,18 @@ def get_dau_mau_ratio_data(dau_data, mau_data, countries=None):
     ratio_data = ratio_data.sort_values('year_month')
     
     return ratio_data
+
+def get_errors_by_date (collection, view):
+    results = list(collection.find({}, {'_id': 0}))
+    df = pd.DataFrame(results)
+
+    if view == 'Monthly':
+        df['localdate'] = pd.to_datetime(df['localdate']).dt.strftime("%Y-%m")
+        # Agrupar por mes y sumar las columnas numéricas
+        df = df.groupby('localdate').sum().reset_index()
+    return df
+
+def get_invalid_format_types (collection):
+    results = list(collection.find({}, {'_id': 0}))
+    df = pd.DataFrame(results)
+    return df
