@@ -6,11 +6,12 @@ from dotenv import load_dotenv
 import os
 from get_data import (get_daily_data, get_monthly_data, add_total_per_date, get_total_free_users,
                       get_heavy_free_users, aggregate_user_cycles, add_total_as_country, filter_user_cycles,
-                      calculate_total_metrics, get_dau_mau_ratio_data)
+                      calculate_total_metrics, get_dau_mau_ratio_data, get_errors_by_date, get_invalid_format_types)
 from charts import (active_users_chart, total_interactions_chart, heat_map_users_by_country, plot_user_histogram_faceted,
                     users_by_country, new_users_by_country, tree_map_users_by_country, interactions_by_country_chart,
                     new_users_percentage_chart, interactions_percentage_chart, subs_by_country_chart, free_users_by_country,
-                    dau_mau_ratio_chart, active_subscribed_users_chart, subscribed_users_percent_chart, country_share)
+                    dau_mau_ratio_chart, active_subscribed_users_chart, subscribed_users_percent_chart, country_share,
+                    errors_by_date_chart, invalid_format_types_chart)
 
 # MongoDB connection
 load_dotenv()
@@ -21,10 +22,9 @@ collection_freePlanCycles = db_TME['freePlanCycles']
 db_TME_charts = client['TranscribeMe-charts']
 collection_dau_by_country = db_TME_charts['dau-by-country']
 collection_mau_by_country = db_TME_charts['mau-by-country']
-collection_total_users_by_country = db_TME_charts['total-users-by-country']
 collection_free_cycles_by_country = db_TME_charts['free-cycles-by-country']
-
-
+collection_errors_by_date = db_TME_charts['errors_by_date']
+collection_invalid_format_types = db_TME_charts['invalid-format-types']
 
 # Calcular métricas una sola vez al importar el módulo
 TOTAL_METRICS = calculate_total_metrics(collection_dau_by_country, collection_mau_by_country)
@@ -121,6 +121,10 @@ def register_callbacks(app):
             usage_free_users = add_total_as_country(usage_free_users)
             countries = list(usage_free_users['country'].unique())
             countries = sorted([c for c in countries if c != 'Total']) + ['Total']
+            
+            # Errors
+            errors_by_date = get_errors_by_date(collection_errors_by_date, view)
+            errors = [col for col in errors_by_date.columns if col != 'localdate']
             return html.Div([
                 # Gráficos - Vista General
                 html.Div([
@@ -137,6 +141,20 @@ def register_callbacks(app):
                               dcc.Graph(id='total_active_subscribed_users_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
                     html.Div([html.H3(f"{view} Subscribed Users Percentage", style={'textAlign': 'center'}), 
                               dcc.Graph(id='subscribed_users_percent_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
+                    # Errors charts
+                    html.Div([
+                        html.H3(f"{view} Errors", style={'textAlign': 'center'}), 
+                        html.Label("Select the error:"),
+                        dcc.Dropdown(id="errors_dropdown", options=errors,
+                                    value=['total_errors', 'INVALID_FORMAT'],
+                                    multi=True),
+                        dcc.Graph(id='errors_dau')], 
+                    style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
+                    html.Div([
+                        html.H3("Types in INVALID_FORMAT Errors", style={'textAlign': 'center'}), 
+                        dcc.Graph(id='invalid_format_types')], 
+                    style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
+
                     # Free Users Charts
                     html.Div([html.H3("Free Users by Country", style={'textAlign': 'center'}), 
                               dcc.RadioItems(id = 'free_users_data', options = ['Total Free Users', 'Heavy Free Users'], value = 'Total Free Users',inline=True, labelStyle={'margin-right': '20px'}, style={'marginTop': '10px', 'textAlign': 'center'}), 
@@ -258,7 +276,26 @@ def register_callbacks(app):
         return (total_active_users_fig, new_users_percentage_fig, 
                 total_interactions_fig, audio_text_percentage_fig, 
                 total_active_subscribed_users_fig, subscribed_users_percent_fig)
-
+    
+    # Callback para los gráficos de errores
+    @app.callback(
+        
+        [   Output('errors_dau', 'figure'),
+            Output('invalid_format_types', 'figure')
+        ],
+        [
+            Input('errors_dropdown', 'value'),
+            Input('view_selector', 'value'),
+        ]
+    )
+    def update_errors_charts(errors, view):
+        errors_data = get_errors_by_date(collection_errors_by_date, view)
+        errors_by_date_fig = errors_by_date_chart(errors_data, errors, view)
+        
+        invalid_format_types = get_invalid_format_types(collection_invalid_format_types)
+        invalid_format_types_fig = invalid_format_types_chart(invalid_format_types)
+        return errors_by_date_fig, invalid_format_types_fig
+    
     # Callback para gráficos generales de Free Users
     @app.callback(
         [
