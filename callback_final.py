@@ -22,13 +22,14 @@ db_TME = client['TranscribeMe']
 collection_freePlanCycles = db_TME['freePlanCycles']
 db_TME_charts = client['TranscribeMe-charts']
 collection_dau_by_country = db_TME_charts['dau-by-country']
+collection_new_users = db_TME_charts['daily-new-users']
 collection_mau_by_country = db_TME_charts['mau-by-country']
 collection_free_cycles_by_country = db_TME_charts['free-cycles-by-country']
 collection_errors_by_date = db_TME_charts['errors_by_date']
 collection_invalid_format_types = db_TME_charts['invalid-format-types']
 
 # Calcular métricas una sola vez al importar el módulo
-TOTAL_METRICS = calculate_total_metrics(collection_dau_by_country, collection_mau_by_country)
+TOTAL_METRICS = calculate_total_metrics(collection_dau_by_country, collection_mau_by_country, collection_new_users)
 
 # Cache para data de DAU
 _dau_chart_cache = {}
@@ -57,9 +58,9 @@ def get_chart_data(view, start_date, end_date):
     if cache_key not in _charts_cache:
         print(f"Obteniendo datos para gráficos: {view} desde {start_date} hasta {end_date}")
         if view == 'Daily':
-            _charts_cache[cache_key] = get_daily_data(collection_dau_by_country, start_date, end_date)
+            _charts_cache[cache_key] = get_daily_data(collection_dau_by_country, collection_new_users, start_date, end_date)
         elif view == 'Monthly':
-            _charts_cache[cache_key] = get_monthly_data(collection_mau_by_country, start_date, end_date)
+            _charts_cache[cache_key] = get_monthly_data(collection_mau_by_country, collection_new_users, start_date, end_date)
     
     return _charts_cache[cache_key]
 
