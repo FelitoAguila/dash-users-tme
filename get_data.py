@@ -1,17 +1,21 @@
 from datetime import datetime, timedelta
 import pandas as pd
 
-def get_daily_data(collection, start_date, end_date):
+from datetime import datetime, timedelta
+import pandas as pd
+
+def get_daily_data(collection_dau, collection_new_users, start_date, end_date):
     """
     Extrae documentos de TranscribeMe-charts.dau-by-country en un rango de fechas y los convierte en un DataFrame.
     
     Args:
-        collection (Collection): Objeto de colección de pymongo.
+        collection_dau (Collection): Objeto de colección de pymongo para DAU.
+        collection_new_users (Collection): Objeto de colección de pymongo para nuevos usuarios.
         start_date (str): Fecha inicial en formato 'yyyy-mm-dd'.
         end_date (str): Fecha final en formato 'yyyy-mm-dd'.
     
     Returns:
-        pd.DataFrame: DataFrame con las columnas date, country, dau, new_users, interactions, audio, text.
+        pd.DataFrame: DataFrame con las columnas date, country, count, new_users, subscribed, interactions, audio, text.
     """
     try:
         # Validar formato de fechas
@@ -21,7 +25,8 @@ def get_daily_data(collection, start_date, end_date):
             if start > end:
                 raise ValueError("start_date no puede ser mayor que end_date")
         except ValueError as e:
-            raise ValueError(f"Error en el formato de las fechas: {e}. Use 'yyyy-mm-dd'.")
+            print(f"Error en el formato de las fechas: {e}. Use 'yyyy-mm-dd'.")
+            return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed', 'interactions', 'audio', 'text'])
 
         # Definir el filtro de fechas
         query = {
@@ -37,52 +42,79 @@ def get_daily_data(collection, start_date, end_date):
             'date': 1,
             'country': 1,
             'dau': 1,
-            'new_users': 1,
-            'subscribed':1,
+            'subscribed': 1,
             'interactions': 1,
             'audio': 1,
             'text': 1
         }
 
         # Extraer documentos
-        documentos = list(collection.find(query, projection))
+        documentos = list(collection_dau.find(query, projection))
+        print(f"Documentos extraídos de collection_dau: {len(documentos)}")  # Depuración
+
+        proj = {"_id": 0, "date": 1, "country": 1, "new_users": 1}
+        docs = list(collection_new_users.find(query, proj))
+        print(f"Documentos extraídos de collection_new_users: {len(docs)}")  # Depuración
 
         # Verificar si se encontraron documentos
         if not documentos:
-            print(f"No se encontraron documentos en la colección '{collection.name}' entre {start_date} y {end_date}.")
-            return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed','interactions', 'audio', 'text'])
+            print(f"No se encontraron documentos en la colección '{collection_dau.name}' entre {start_date} y {end_date}.")
+            return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed', 'interactions', 'audio', 'text'])
 
         # Convertir a DataFrame
         df = pd.DataFrame(documentos)
+        df2 = pd.DataFrame(docs)
+        
+        # Depuración: Verificar contenido de los DataFrames
+        print("Columnas en df:", df.columns.tolist())
+        print("Columnas en df2:", df2.columns.tolist())
+        print("Primeros registros de df:", df.head().to_dict())
+        print("Primeros registros de df2:", df2.head().to_dict())
 
         # Cambiar nombre
         df = df.rename(columns={'dau': 'count'})
 
-        # Convertir 'date' a datetime
-        df['date'] = pd.to_datetime(df['date'])
+        # Convertir 'date' a datetime en ambos DataFrames
+        try:
+            df['date'] = pd.to_datetime(df['date'])
+            df2['date'] = pd.to_datetime(df2['date'])
+        except Exception as e:
+            print(f"Error al convertir 'date' a datetime: {e}")
+            return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed', 'interactions', 'audio', 'text'])
+
+        # Asegurar que la columna 'date' esté en formato string 'yyyy-mm-dd'
+        df['date'] = df['date'].dt.strftime('%Y-%m-%d')
+        df2['date'] = df2['date'].dt.strftime('%Y-%m-%d')
+
+        # Unir los DataFrames por 'date' y 'country'
+        df = df.merge(df2[['date', 'country', 'new_users']], 
+                      on=['date', 'country'], 
+                      how='left')
 
         # Ordenar por 'date'
         df = df.sort_values(by='date', ascending=True)
-        
-        # Asegurar que la columna 'date' esté en formato string 'yyyy-mm-dd'
-        df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+
+        # Rellenar posibles valores NaN o None en 'new_users' con 0
+        df['new_users'] = df['new_users'].replace([None], 0).fillna(0).astype(int)
+
         return df
     
     except Exception as e:
         print(f"Error al extraer datos: {e}")
-        return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed','interactions', 'audio', 'text'])
+        return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed', 'interactions', 'audio', 'text'])
 
-def get_monthly_data(collection, start_date, end_date):
+def get_monthly_data(collection, collection_new_users, start_date, end_date):
     """
     Extrae documentos de TranscribeMe-charts.dau-by-country en un rango de fechas y los convierte en un DataFrame.
     
     Args:
-        collection (Collection): Objeto de colección de pymongo.
+        collection (Collection): Objeto de colección de pymongo para datos mensuales.
+        collection_new_users (Collection): Objeto de colección de pymongo para nuevos usuarios.
         start_date (str): Fecha inicial en formato 'yyyy-mm-dd'.
         end_date (str): Fecha final en formato 'yyyy-mm-dd'.
     
     Returns:
-        pd.DataFrame: DataFrame con las columnas date, country, dau, new_users, interactions, audio, text.
+        pd.DataFrame: DataFrame con las columnas date, country, count, new_users, subscribed, interactions, audio, text.
     """
     try:
         # Validar formato de fechas
@@ -92,7 +124,8 @@ def get_monthly_data(collection, start_date, end_date):
             if start > end:
                 raise ValueError("start_date no puede ser mayor que end_date")
         except ValueError as e:
-            raise ValueError(f"Error en el formato de las fechas: {e}. Use 'yyyy-mm-dd'.")
+            print(f"Error en el formato de las fechas: {e}. Use 'yyyy-mm-dd'.")
+            return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed', 'interactions', 'audio', 'text'])
 
         # Definir el filtro de fechas
         query = {
@@ -108,7 +141,6 @@ def get_monthly_data(collection, start_date, end_date):
             'month': 1,
             'country': 1,
             'mau': 1,
-            'new_users': 1,
             'subscribed': 1,
             'interactions': 1,
             'audio': 1,
@@ -117,6 +149,15 @@ def get_monthly_data(collection, start_date, end_date):
 
         # Extraer documentos
         documentos = list(collection.find(query, projection))
+        print(f"Documentos extraídos de collection: {len(documentos)}")  # Depuración
+        if documentos:
+            print("Ejemplo de documento:", documentos[0])  # Mostrar un documento
+
+        proj = {"_id": 0, "date": 1, "country": 1, "new_users": 1}
+        docs = list(collection_new_users.find({'date': {'$gte': start_date, '$lte': end_date}}, proj))
+        print(f"Documentos extraídos de collection_new_users: {len(docs)}")  # Depuración
+        if docs:
+            print("Ejemplo de documento new_users:", docs[0])  # Mostrar un documento
 
         # Verificar si se encontraron documentos
         if not documentos:
@@ -125,17 +166,54 @@ def get_monthly_data(collection, start_date, end_date):
 
         # Convertir a DataFrame
         df = pd.DataFrame(documentos)
+        df2 = pd.DataFrame(docs)
+
+        # Depuración: Verificar columnas
+        print("Columnas en df:", df.columns.tolist())
+        print("Columnas en df2:", df2.columns.tolist())
+
+        # Verificar si 'month' existe en df
+        if 'month' not in df.columns:
+            print("Error: La columna 'month' no está presente en los datos de la colección")
+            return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed', 'interactions', 'audio', 'text'])
 
         # Cambiar nombre
-        df = df.rename(columns={'mau': 'count'})
-        df = df.rename(columns={'month': 'date'})
-        # Asegurar que la columna 'date' esté en formato string 'yyyy-mm-dd'
-        #df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+        df = df.rename(columns={'mau': 'count', 'month': 'date'})
+
+        # Convertir 'date' en df a formato 'yyyy-mm' para compatibilidad
+        df['month'] = pd.to_datetime(df['date']).dt.to_period('M').astype(str)
+
+        # Crear una columna 'month' en df2 para el año-mes
+        if not df2.empty and 'date' in df2.columns:
+            df2['month'] = pd.to_datetime(df2['date'], errors='coerce').dt.to_period('M').astype(str)
+        else:
+            print("Advertencia: df2 está vacío o no contiene la columna 'date'")
+            df2['month'] = None
+
+        # Agrupar por month y country para calcular new_users
+        new_users_df = df2.groupby(['month', 'country']).agg(
+            new_users=('new_users', 'sum')
+        ).reset_index()
+
+        # Unir los DataFrames por 'month' y 'country'
+        df = df.merge(new_users_df[['month', 'country', 'new_users']], 
+                      on=['month', 'country'], 
+                      how='left')
+
+        # Ordenar por 'month'
+        df = df.sort_values(by='month', ascending=True)
+
+        # Rellenar posibles valores NaN o None en 'new_users' con 0
+        df['new_users'] = df['new_users'].replace([None], 0).fillna(0).astype(int)
+
+        # Seleccionar columnas finales
+        df = df[['date', 'country', 'count', 'new_users', 'subscribed', 'interactions', 'audio', 'text']]
+
         return df
     
     except Exception as e:
         print(f"Error al extraer datos: {e}")
-        return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed','interactions', 'audio', 'text'])
+        return pd.DataFrame(columns=['date', 'country', 'count', 'new_users', 'subscribed', 'interactions', 'audio', 'text'])
 
 def add_total_per_date (df):
     # Calcular totales por fecha
@@ -325,7 +403,7 @@ def filter_user_cycles(df, countries, year_range):
     return filtered_df
 
 # MÉTRICAS TOTALES FIJAS - Se calculan una sola vez al iniciar la app
-def calculate_total_metrics(collection_dau_by_country, collection_mau_by_country):
+def calculate_total_metrics(collection_dau_by_country, collection_mau_by_country, collection_new_users):
     """Calcula métricas totales desde 2023-01-01 hasta hoy - SOLO SE EJECUTA UNA VEZ"""
     start_date = "2023-01-01"
     end_date = datetime.now().strftime('%Y-%m-%d')
@@ -333,11 +411,22 @@ def calculate_total_metrics(collection_dau_by_country, collection_mau_by_country
     print(f"Calculando métricas totales desde {start_date} hasta {end_date}...")
     
     # Obtener datos completos
-    daily_data = get_daily_data(collection_dau_by_country, start_date, end_date)
-    monthly_data = get_monthly_data(collection_mau_by_country, start_date, end_date)
+    daily_data = get_daily_data(collection_dau_by_country, collection_new_users, start_date, end_date)
+    monthly_data = get_monthly_data(collection_mau_by_country, collection_new_users, start_date, end_date)
+    
+    # Realizar la agregación para sumar 'new_users'
+    pipeline = [
+            {
+                "$group": {
+                    "_id": None,  # Agrupar todos los documentos (sin clave específica)
+                    "total_new_users": {"$sum": "$new_users"}  # Sumar el campo 'new_users'
+                }
+            }
+        ]
+    result = list(collection_new_users.aggregate(pipeline))
     
     # Calcular métricas totales
-    total_new_users = int(daily_data['new_users'].sum())
+    total_new_users = result[0]['total_new_users']
     average_dau = int(daily_data['count'].sum() / len(daily_data.groupby('date')))
     average_mau = int(monthly_data['count'].sum() / len(monthly_data.groupby('date')))
     total_interactions = int (daily_data['interactions'].sum())
