@@ -2,13 +2,6 @@ from dotenv import load_dotenv
 import os
 import dash
 from dash import dcc, html, Input, Output
-import plotly.express as px
-import pandas as pd
-import pymongo
-from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
-import plotly.graph_objects as go
-from others.get_country import getCountry
 from layout import serve_layout
 from callback_final import register_callbacks
 from dash import Dash
