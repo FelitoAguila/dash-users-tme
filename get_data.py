@@ -499,6 +499,8 @@ def get_errors_by_date (collection, view):
         df['localdate'] = pd.to_datetime(df['localdate']).dt.strftime("%Y-%m")
         # Agrupar por mes y sumar las columnas numéricas
         df = df.groupby('localdate').sum().reset_index()
+
+    df = df.sort_values('localdate')
     return df
 
 def get_invalid_format_types (collection, start, end):
