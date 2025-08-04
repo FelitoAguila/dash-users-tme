@@ -1,9 +1,10 @@
 import pymongo
-from dash import Input, Output, html, dcc
+from dash import Input, Output, State, html, dcc
 import dash_bootstrap_components as dbc
 from datetime import datetime
 from dotenv import load_dotenv
 import pytz
+import pandas as pd
 import os
 from get_data import (get_daily_data, get_monthly_data, add_total_per_date, get_total_free_users,
                       get_heavy_free_users, aggregate_user_cycles, add_total_as_country, filter_user_cycles,
@@ -13,13 +14,26 @@ from charts import (active_users_chart, total_interactions_chart, heat_map_users
                     new_users_percentage_chart, interactions_percentage_chart, subs_by_country_chart, free_users_by_country,
                     dau_mau_ratio_chart, active_subscribed_users_chart, subscribed_users_percent_chart, country_share,
                     errors_by_date_chart, invalid_format_types_chart)
+# from monitoreo import (get_last_dt_active_users, extract_user_content, asign_countries, get_all_countries_and_continents,
+#                        desencrypt_messages, ENCRYPT_KEY_ID, get_messages)
+
+from features import (get_documents_data, get_image_data, get_video_data, get_youtube_data,
+                      get_lists_data, get_reminders_data, get_features_df,
+                      plot_dau_lines)
 
 # MongoDB connection
 load_dotenv()
 MONGO_URI = os.getenv('MONGO_URI')
 client = pymongo.MongoClient(MONGO_URI)
+
 db_TME = client['TranscribeMe']
 collection_freePlanCycles = db_TME['freePlanCycles']
+collection_userPreferences = db_TME['userPreferences']
+collection_calls = db_TME['calls']
+
+db_Analytics = client['Analytics']
+collection_dau = db_Analytics['dau']
+
 db_TME_charts = client['TranscribeMe-charts']
 collection_dau_by_country = db_TME_charts['dau-by-country']
 collection_new_users = db_TME_charts['daily-new-users']
@@ -27,6 +41,12 @@ collection_mau_by_country = db_TME_charts['mau-by-country']
 collection_free_cycles_by_country = db_TME_charts['free-cycles-by-country']
 collection_errors_by_date = db_TME_charts['errors_by_date']
 collection_invalid_format_types = db_TME_charts['invalid-format-types']
+
+db_ListMe = client['ListMe']
+collection_lists = db_ListMe['lists']
+
+db_RemindMe = client['RemindMe']
+collection_rme = db_RemindMe['reminders']
 
 # Calcular métricas una sola vez al importar el módulo
 TOTAL_METRICS = calculate_total_metrics(collection_dau_by_country, collection_mau_by_country, collection_new_users)
@@ -143,6 +163,28 @@ def register_callbacks(app):
                               dcc.Graph(id='total_active_subscribed_users_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
                     html.Div([html.H3(f"{view} Subscribed Users Percentage", style={'textAlign': 'center'}), 
                               dcc.Graph(id='subscribed_users_percent_fig')], style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
+                    
+                    # Uso de features
+                    html.Div([
+                        html.H3("Monitoreo del uso de features", style={'textAlign': 'center'}), 
+                        html.Label("Start date", style={'marginRight': '10px'}),
+                        dcc.DatePickerSingle(id="features-start-date", 
+                                             display_format='YYYY-MM-DD',
+                                             initial_visible_month=datetime(2025, 7, 1),
+                                             date=datetime(2025, 7, 15),  # Fecha inicial: enero-2025
+                                             min_date_allowed=datetime(2024, 1, 1),
+                                             style={'marginRight': '20px'}),
+                        html.Label("End date", style={'marginRight': '10px'}),
+                        dcc.DatePickerSingle(id="features-end-date", 
+                                             display_format='YYYY-MM-DD',
+                                             initial_visible_month=datetime(2025, 7, 1),
+                                             date=datetime.now(pytz.timezone('America/Argentina/Buenos_Aires')),
+                                             min_date_allowed=datetime(2024, 1, 1),
+                                             style={'marginRight': '20px'}),
+                        html.Button("Mostrar gráfico", id="show-features-chart-btn", n_clicks=0),
+                        dcc.Graph(id="features-chart")], 
+                    style={'flex': '1', 'minWidth': '45%', 'margin': '10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'}),
+                    
                     # Errors charts
                     html.Div([
                         html.H3(f"{view} Errors", style={'textAlign': 'center'}), 
@@ -247,6 +289,23 @@ def register_callbacks(app):
                         dcc.Graph(id='dau_mau_ratio_chart')], 
                     style={'margin': '20px 10px', 'border': '1px solid #ddd', 'borderRadius': '5px', 'padding': '10px'})
             ])
+        # elif active_tab == 'monitoreo':    
+        #     monitoreo_dropdown_values = get_all_countries_and_continents()
+        #     return html.Div([
+        #                 html.H3("Sección de Descargas", style={'textAlign': 'center'}),
+        #                     html.Div([
+        #                     # Sección de descarga de mensajes de las últimas 24h
+        #                     html.Div([
+        #                         html.H4("Descarga de mensajes de usuarios"),
+        #                         dcc.RadioItems(id = 'monitoreo_filter', options = ['Filtrar por países', 'Filtrar por continentes'], value = 'Filtrar por continentes',inline=True, labelStyle={'margin-right': '20px'}, style={'marginTop': '10px', 'textAlign': 'center'}), 
+        #                         dcc.Dropdown(id="monitoreo_dropdown", options=[{"label": v, "value": v} for v in monitoreo_dropdown_values],
+        #                             value=["Africa"], multi=True, style = {'textAlign': 'left'}),
+        #                         html.Button("Download CSV", id="btn_descarga_mensajes_csv"),
+        #                         dcc.Download(id="download-mensajes-csv"),
+        #                         ], style={'flex': '1', 'padding': '10px', 'textAlign': 'center'}),
+        #                     ], style={'display': 'flex', 'flexDirection': 'row', 'gap': '20px', 'justifyContent': 'space-around', 'maxWidth': '800px','margin': '0 auto', 'border': '1px solid #ddd', 'borderRadius': '5px' }),
+        #                 ], style={'margin': '20px', 'marginBottom': '40px'}),
+
         return html.Div([html.P("Selecciona una pestaña para ver el contenido.")])
     
     # Callback para gráficos generales - SÍ cambian con filtros
@@ -411,3 +470,50 @@ def register_callbacks(app):
     
         # Generar gráfico
         return dau_mau_ratio_chart(ratio_data, countries, "DAU/MAU Ratio por Mes")
+    
+    # Callback de descargas
+    @app.callback(
+        Output("download-mensajes-csv", "data"),
+        [
+            Input('monitoreo_filter', 'value'),
+            Input("monitoreo_dropdown", 'value'),
+            Input("btn_descarga_mensajes_csv", "n_clicks"),
+        ],
+        prevent_initial_call=True,
+    )
+    def func(filter, values, n_clicks):
+        if filter == 'Filtrar por continentes':
+            filter_df = "continent"
+        else:
+            filter_df = 'countries'
+        all_messages_df = get_last_dt_active_users (collection_dau, collection_userPreferences)
+        print ('Last active users successfully identified')
+        all_messages_df['user_content'] = all_messages_df['messages'].apply(extract_user_content)
+        print ('Original messages extracted')
+        all_messages_df_with_countries = asign_countries(all_messages_df)
+        all_messages_df_with_countries['decrypted_user_content'] = all_messages_df_with_countries['user_content'].apply(lambda x: desencrypt_messages(x, ENCRYPT_KEY_ID))
+        print ('Original messages decrypted')
+        mensajes = get_messages(all_messages_df_with_countries, values, filter_df)
+        mensajes_df = pd.DataFrame({"mensajes": mensajes})
+        return dcc.send_data_frame(mensajes_df.to_csv, "contenido_mensajes_usuarios.csv", index = False)
+    
+    # Callback de features
+    @app.callback(
+        Output("features-chart", "figure"),
+        Input("show-features-chart-btn", "n_clicks"),
+        State("features-start-date", 'date'),
+        State("features-end-date", 'date'),
+        prevent_initial_call=True
+    )
+    def show_features_dau_chart(n_clicks, start, end):
+        image_data_df = get_image_data(collection_calls, start, end)
+        docs_data_df = get_documents_data(collection_calls, start, end)
+        video_data_df = get_video_data(collection_calls, start, end)
+        youtube_data_df = get_youtube_data(collection_calls, start, end)
+
+        list_data_df = get_lists_data(collection_lists, start, end)
+        reminders_data_df = get_reminders_data(collection_rme, start, end)
+
+        final_df = get_features_df(image_data_df, docs_data_df, video_data_df, youtube_data_df, reminders_data_df, list_data_df)
+        fig = plot_dau_lines(final_df)
+        return fig
